@@ -1,0 +1,18 @@
+{
+  "name": "strategic-analyst-marketplace",
+  "description": "Marketplace for the strategic-analyst plugin — disciplined open-source intelligence for Claude Code",
+  "owner": {
+    "name": "strategic-analyst-plugin"
+  },
+  "plugins": [
+    {
+      "name": "strategic-analyst",
+      "description": "Disciplined open-source intelligence: lens stack, calibrated synthesis, red-teaming, evidence ledger, and live-data fetchers for news-analysis tradecraft",
+      "version": "0.1.0",
+      "source": "./",
+      "author": {
+        "name": "strategic-analyst-plugin"
+      }
+    }
+  ]
+}

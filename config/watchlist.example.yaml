@@ -1,0 +1,146 @@
+# strategic-analyst — watchlist starter
+#
+# Copy to config/watchlist.yaml and edit. The shape is:
+#
+#   outlets: [a list of feeds, each with source_grade and default_info_grade]
+#   topics:  [a list of named topics, each filtering keywords across a subset of outlets]
+#
+# Source-grade scale (Admiralty):
+#   A — primary documents, official statistics
+#   B — wire services, quality national press, multilateral institutions
+#   C — analyst notes, think-tank pieces (analysis, not source)
+#   D — anonymous social media (lead only, never source)
+#
+# Info-grade scale (Admiralty):
+#   1 — confirmed by independent sources
+#   2 — probably true (reputable single-source)
+#   3 — possibly true
+#   4 — doubtful
+#
+# Most named outlets sit at B2 by default; primary-source feeds (central banks,
+# gazettes, regulators) sit at A1.
+
+outlets:
+  # ---------------------------------------------------------------------
+  # Wire services — global, B2 default
+  # ---------------------------------------------------------------------
+  - name: Reuters Top News
+    feed: https://www.reutersagency.com/feed/?best-topics=top-news&post_type=best
+    source_grade: B
+    default_info_grade: 2
+    region: global
+
+  - name: AP Top News
+    feed: https://feeds.apnews.com/rss/apf-topnews
+    source_grade: B
+    default_info_grade: 2
+    region: global
+
+  # ---------------------------------------------------------------------
+  # Quality national press — B2 default
+  # ---------------------------------------------------------------------
+  - name: FT World
+    feed: https://www.ft.com/world?format=rss
+    source_grade: B
+    default_info_grade: 2
+    region: global
+
+  - name: BBC World
+    feed: http://feeds.bbci.co.uk/news/world/rss.xml
+    source_grade: B
+    default_info_grade: 2
+    region: global
+
+  - name: Bloomberg Markets
+    feed: https://feeds.bloomberg.com/markets/news.rss
+    source_grade: B
+    default_info_grade: 2
+    region: global
+
+  - name: Economist Latest
+    feed: https://www.economist.com/the-world-this-week/rss.xml
+    source_grade: B
+    default_info_grade: 2
+    region: global
+
+  # ---------------------------------------------------------------------
+  # Specialist OSINT — B2 (methodology transparent)
+  # ---------------------------------------------------------------------
+  - name: ISW Iran Updates
+    feed: https://www.understandingwar.org/rss.xml
+    source_grade: B
+    default_info_grade: 2
+    region: global
+
+  - name: Bellingcat
+    feed: https://www.bellingcat.com/feed/
+    source_grade: B
+    default_info_grade: 2
+    region: global
+
+  # ---------------------------------------------------------------------
+  # Primary-source feeds — A1 default (central banks, regulators, gazettes)
+  # ---------------------------------------------------------------------
+  - name: ECB Press Releases
+    feed: https://www.ecb.europa.eu/rss/press.html
+    source_grade: A
+    default_info_grade: 1
+    region: EU
+
+  - name: Federal Reserve Press
+    feed: https://www.federalreserve.gov/feeds/press_all.xml
+    source_grade: A
+    default_info_grade: 1
+    region: US
+
+  - name: Bank of England News
+    feed: https://www.bankofengland.co.uk/news/rss
+    source_grade: A
+    default_info_grade: 1
+    region: UK
+
+  - name: IMF Press Releases
+    feed: https://www.imf.org/en/News/RSS?language=eng&series=Press%20Releases
+    source_grade: A
+    default_info_grade: 1
+    region: global
+
+  - name: OFAC Recent Actions
+    feed: https://ofac.treasury.gov/rss/recent-actions.xml
+    source_grade: A
+    default_info_grade: 1
+    region: US
+
+  - name: SEC Press Releases
+    feed: https://www.sec.gov/news/pressreleases.rss
+    source_grade: A
+    default_info_grade: 1
+    region: US
+
+# ---------------------------------------------------------------------
+# Topics — named keyword filters across a subset of outlets
+# ---------------------------------------------------------------------
+topics:
+  - name: monetary-policy
+    keywords: ["central bank", "policy rate", "interest rate", "rate cut", "rate hike", "QE", "QT", "FOMC", "ECB", "BoE", "PBoC", "BoJ"]
+    outlets: ["Reuters Top News", "FT World", "Bloomberg Markets", "ECB Press Releases", "Federal Reserve Press", "Bank of England News"]
+
+  - name: sovereign-debt
+    keywords: ["sovereign", "default", "restructuring", "IMF programme", "IMF bailout", "credit rating", "downgrade", "spread", "CDS"]
+    outlets: ["Reuters Top News", "FT World", "Bloomberg Markets", "IMF Press Releases", "Economist Latest"]
+
+  - name: sanctions
+    keywords: ["sanction", "OFAC", "SDN list", "entity list", "designation", "asset freeze", "secondary sanction"]
+    outlets: ["Reuters Top News", "FT World", "BBC World", "OFAC Recent Actions"]
+
+  - name: conflict
+    keywords: ["strike", "offensive", "ceasefire", "casualty", "missile", "drone", "frontline"]
+    outlets: ["Reuters Top News", "AP Top News", "BBC World", "ISW Iran Updates", "Bellingcat"]
+
+  - name: turkey
+    keywords: ["Turkey", "Türkiye", "TCMB", "Erdoğan", "lira", "Istanbul"]
+    outlets: ["Reuters Top News", "FT World", "BBC World", "Bloomberg Markets"]
+
+  - name: china
+    keywords: ["China", "PBoC", "yuan", "renminbi", "Beijing", "Xi Jinping", "Politburo"]
+    outlets: ["Reuters Top News", "FT World", "Bloomberg Markets", "Economist Latest"]

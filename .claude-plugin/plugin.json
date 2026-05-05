@@ -1,0 +1,10 @@
+{
+  "name": "strategic-analyst",
+  "description": "Disciplined open-source intelligence: lens stack, calibrated synthesis, red-teaming, evidence ledger, and live-data fetchers for news-analysis tradecraft",
+  "version": "0.1.0",
+  "author": {
+    "name": "strategic-analyst-plugin"
+  },
+  "license": "MIT",
+  "keywords": ["skills", "intelligence", "news-analysis", "geopolitics", "osint", "tradecraft", "verification", "forecasting"]
+}

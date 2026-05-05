@@ -1,0 +1,38 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Personal Claude Code settings (paths, per-user permissions); the committed
+# .claude/settings.json is for team-shared config only
+.claude/settings.local.json
+
+# Working evidence ledgers (per-investigation files; not source)
+evidence/
+
+# API response cache
+cache/
+
+# Test deliverables produced ad-hoc (fixtures live under tests/fixtures/)
+/turkey-cbrt-one-pager-*.md
+/*-one-pager-*.md
+/*-sitrep-*.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Telegram authenticated-session files (credential-equivalent)
+*.session
+*.session-journal
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,5 @@
+claim,source,source_grade,info_grade,primary_url,archive_url,accessed_at,notes
+"TCMB cut 1-week repo from 35.0% to 32.5% on 2024-XX-XX","TCMB press release",A,1,"https://www.tcmb.gov.tr/wps/wcm/connect/EN/TCMB+EN/Main+Menu/Announcements/Press+Releases/","https://web.archive.org/web/2024XXXXXXXXXXXX/https://www.tcmb.gov.tr/...","2024-XX-XXT08:14:00Z","Primary document. Confirms 250bp."
+"Markets had expected a hold","Reuters wire",B,2,"https://www.reuters.com/markets/...turkey-rate-cut","https://web.archive.org/web/2024XXXXXXXXXXXX/https://www.reuters.com/...","2024-XX-XXT08:15:00Z","Single wire. Acceptable for expectations colour, not load-bearing."
+"Cut driven by political pressure ahead of municipal elections","sell-side analyst note (Bank X)",C,3,"not located (note distributed by email)","n/a","2024-XX-XXT08:18:00Z","Anonymous sources within the note. Treat as one analyst's read, not fact."
+"Actual cut was 350bp; communique to be amended","EM commentator on X (@handle)",D,4,"https://x.com/handle/status/...","https://web.archive.org/web/2024XXXXXXXXXXXX/https://x.com/...","2024-XX-XXT08:20:00Z","Single anonymous claim, contradicts primary document. Discard."
