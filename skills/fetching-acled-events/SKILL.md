@@ -25,71 +25,205 @@ ACLED (Armed Conflict Location & Event Data) is the standard structured database
 
 ## API Setup
 
-Register at [acleddata.com/data-export-tool/](https://acleddata.com/data-export-tool/). Approval is automatic on email confirmation. Set in `.env`:
+Register a myACLED account at [acleddata.com/register](https://acleddata.com/register). Approval is automatic on email confirmation. **ACLED moved to OAuth 2.0 Bearer-token auth in 2026** — the legacy `key`+`email` query-string scheme is no longer accepted, and the `api.acleddata.com` subdomain is dead.
+
+Set in `.env`:
 
 ```
-ACLED_KEY=...
 ACLED_EMAIL=you@example.com
+ACLED_PASSWORD=your-myacled-password
 ```
 
-The API requires both on every request — `email` is treated as part of the credential.
+The skill exchanges these for a 24-hour access token at the token endpoint and caches it under `cache/acled/token.json`. Refresh tokens (14-day) are used for renewal so the password doesn't have to be re-sent on every cycle. The password sits in memory only; it is never put in a URL or printed.
 
-**Endpoint:** `https://api.acleddata.com/acled/read`
+**Endpoints:**
+- Token: `https://acleddata.com/oauth/token`
+- Read: `https://acleddata.com/api/acled/read`
+
+**Authoritative documentation:**
+- https://acleddata.com/acled-api-documentation
+- https://acleddata.com/api-documentation/getting-started
+- https://acleddata.com/api-documentation/acled-endpoint
+- https://acleddata.com/api-documentation/elements-acleds-api
 
 ## The Workhorse Call
 
+Two helpers: `_acled_token()` manages the OAuth dance with token caching; `acled_events()` is the analyst-facing fetcher. Apply `handling-credentials-safely` throughout — the password and tokens never appear in URLs, error messages, summaries, or cache filenames.
+
 ```python
-import os, httpx, pandas as pd
+import os, json, time, pathlib, httpx, pandas as pd
+from typing import Optional
 
-ACLED_KEY = os.environ["ACLED_KEY"]
-ACLED_EMAIL = os.environ["ACLED_EMAIL"]
+ACLED_EMAIL    = os.environ["ACLED_EMAIL"]
+ACLED_PASSWORD = os.environ["ACLED_PASSWORD"]
 
-def acled_events(country: str | None = None,
-                 region: str | None = None,
-                 event_type: str | None = None,
-                 actor1: str | None = None,
-                 event_date_start: str | None = None,
-                 event_date_end: str | None = None,
+TOKEN_URL = "https://acleddata.com/oauth/token"
+READ_URL  = "https://acleddata.com/api/acled/read"
+TOKEN_CACHE = pathlib.Path("cache/acled/token.json")
+TOKEN_CACHE.parent.mkdir(parents=True, exist_ok=True)
+SAFETY_MARGIN_S = 300  # refresh 5 min before nominal expiry
+
+
+def _save_token(payload: dict) -> dict:
+    """Persist token + computed expiry timestamp; chmod 600."""
+    record = {
+        "access_token":  payload["access_token"],
+        "refresh_token": payload.get("refresh_token"),
+        "expires_at":    int(time.time()) + int(payload.get("expires_in", 86400)),
+        "token_type":    payload.get("token_type", "Bearer"),
+    }
+    TOKEN_CACHE.write_text(json.dumps(record))
+    try:
+        TOKEN_CACHE.chmod(0o600)
+    except OSError:
+        pass  # non-POSIX filesystem
+    return record
+
+
+def _post_token(data: dict) -> dict:
+    """Token endpoint with credential-safe error handling.
+
+    A 4xx from the token endpoint can echo the submitted password in the
+    response body — never include `e.response.text` in the re-raised error.
+    """
+    try:
+        r = httpx.post(TOKEN_URL, data=data, timeout=30,
+                       headers={"User-Agent": "strategic-analyst/0.1"})
+        r.raise_for_status()
+        return r.json()
+    except httpx.HTTPStatusError as e:
+        raise RuntimeError(
+            f"ACLED token endpoint returned {e.response.status_code}; "
+            f"check ACLED_EMAIL / ACLED_PASSWORD in .env"
+        ) from None
+
+
+def _acled_token() -> str:
+    """Return a valid access token; refresh-first fallback to password grant.
+
+    ACLED's OAuth server requires `client_id="acled"` (a hardcoded public
+    client identifier; no client_secret) on every grant request. The
+    password grant additionally requires `scope="authenticated"`.
+    Verified against the live API on 2026-05-05.
+    """
+    now = int(time.time())
+    if TOKEN_CACHE.exists():
+        rec = json.loads(TOKEN_CACHE.read_text())
+        if rec.get("expires_at", 0) - SAFETY_MARGIN_S > now:
+            return rec["access_token"]
+        # Try refresh first — avoids re-sending the password.
+        if rec.get("refresh_token"):
+            try:
+                payload = _post_token({
+                    "grant_type":    "refresh_token",
+                    "refresh_token": rec["refresh_token"],
+                    "client_id":     "acled",
+                })
+                return _save_token(payload)["access_token"]
+            except RuntimeError:
+                pass  # fall through to password grant
+    # Password grant — first use, or after a refresh-token failure.
+    payload = _post_token({
+        "grant_type": "password",
+        "client_id":  "acled",
+        "scope":      "authenticated",
+        "username":   ACLED_EMAIL,
+        "password":   ACLED_PASSWORD,
+    })
+    return _save_token(payload)["access_token"]
+
+
+def acled_events(country: Optional[str] = None,
+                 region: Optional[str] = None,
+                 event_type: Optional[str] = None,
+                 actor1: Optional[str] = None,
+                 event_date_start: Optional[str] = None,
+                 event_date_end: Optional[str] = None,
                  limit: int = 5000) -> pd.DataFrame:
     """Fetch ACLED events with the most useful filters.
 
     Dates: YYYY-MM-DD. Use event_date_start..event_date_end (BETWEEN logic).
     Country: full English name (e.g., 'Sudan'). Pipe-separated for multiple.
     Region: 1=Western Africa, 2=Middle Africa, ... see ACLED docs.
-    Event type: 'Battles' | 'Explosions/Remote violence' | 'Violence against civilians' |
-                'Protests' | 'Riots' | 'Strategic developments'.
+    Event type: 'Battles' | 'Explosions/Remote violence' | 'Violence against civilians'
+                | 'Protests' | 'Riots' | 'Strategic developments'.
     """
-    params = {
-        "key": ACLED_KEY,
-        "email": ACLED_EMAIL,
-        "limit": limit,
-    }
-    if country:
-        params["country"] = country
-    if region:
-        params["region"] = region
-    if event_type:
-        params["event_type"] = event_type
+    params = {"limit": limit}
+    if country:    params["country"] = country
+    if region:     params["region"] = region
+    if event_type: params["event_type"] = event_type
     if actor1:
         params["actor1"] = actor1
         params["actor1_where"] = "LIKE"  # substring match
     if event_date_start and event_date_end:
         params["event_date"] = f"{event_date_start}|{event_date_end}"
         params["event_date_where"] = "BETWEEN"
-    r = httpx.get("https://api.acleddata.com/acled/read",
-                  params=params, timeout=30,
-                  headers={"User-Agent": "strategic-analyst/0.1"})
+
+    headers = {
+        "Authorization": f"Bearer {_acled_token()}",
+        "User-Agent": "strategic-analyst/0.1",
+    }
+    r = httpx.get(READ_URL, params=params, headers=headers, timeout=30)
+    if r.status_code == 401:
+        # Token may have been revoked early (admin action, password change).
+        # Single retry: drop the cache, re-grant, retry once.
+        TOKEN_CACHE.unlink(missing_ok=True)
+        headers["Authorization"] = f"Bearer {_acled_token()}"
+        r = httpx.get(READ_URL, params=params, headers=headers, timeout=30)
     r.raise_for_status()
     return pd.DataFrame(r.json().get("data", []))
 ```
 
-Worked example — battles in Sudan in March 2026:
+Worked example — battles in Sudan, April 2024:
 
 ```python
 df = acled_events(country="Sudan",
                   event_type="Battles",
-                  event_date_start="2026-03-01",
-                  event_date_end="2026-03-31")
+                  event_date_start="2024-04-01",
+                  event_date_end="2024-04-30")
+# Live verification 2026-05-05: returns events with all 31 documented fields,
+# sample row date=2024-04-03 type=Battles location=Nyala fatalities=3.
+```
+
+The first call triggers a password grant and writes `cache/acled/token.json`; subsequent calls (within 24 hours) reuse the cached access token; calls after expiry use the refresh token; the password is re-sent only when the refresh token has itself expired (~14 days) or has been revoked.
+
+## Account-Level Query Restrictions (read this before debugging "no rows")
+
+ACLED's free / standard accounts apply a **publication-lag restriction**: events are not exposed to the API until they are at least **12 months old**. A query for "Sudan, last 30 days" will return zero rows on a free-tier account — not because the data doesn't exist, but because the account isn't authorised to see it yet.
+
+Every `acled_events()` response includes a `data_query_restrictions` block describing the active limits:
+
+```json
+{
+  "data_query_restrictions": {
+    "countries": [],
+    "event_types": [],
+    "regions": [],
+    "history": [],
+    "recency": [],
+    "date_recency": {
+      "quantity": 12,
+      "unit": "Months",
+      "description": "12 Months old",
+      "timestamp": 1746493801,
+      "date": "2025-05-06"
+    }
+  }
+}
+```
+
+The `date_recency.date` field is the cutoff: queries must be entirely *before* this date. Other restriction fields (`countries`, `event_types`, `regions`, `history`, `recency`) describe other quota dimensions that empty arrays mean "no restriction" and populated arrays describe the allowed set.
+
+**Operational consequence for the analyst:** ACLED is not a real-time wire. For analysis of events less than 12 months old you need either an enterprise-tier account (`describe.recency` lifted on registration) or a different data source — GDELT for tempo and narrative coverage, Bellingcat / ISW for verified-OSINT live tracking. The skill documents this at the design level rather than papering over it with a "live" claim that is structurally false.
+
+Inspect restrictions programmatically when an empty result is suspicious:
+
+```python
+import httpx
+r = httpx.get("https://acleddata.com/api/acled/read",
+              params={"limit": 1},
+              headers={"Authorization": f"Bearer {_acled_token()}"})
+print(r.json()["data_query_restrictions"]["date_recency"])
 ```
 
 ## Schema (the columns worth knowing)
@@ -128,6 +262,9 @@ df = acled_events(country="Sudan",
 | Filtering only on `actor1` | An actor often appears as `actor2` or `assoc_actor_1`. Use union queries. |
 | No User-Agent | ACLED logs and may rate-limit anonymous bulk callers. Identify the client. |
 | Caching the live endpoint as if it were static | Recent rows can be edited as new sources surface. Re-pull the last 30 days; older history is stable. |
+| Committing `cache/acled/token.json` | It's a 24-hour bearer credential. `cache/` is gitignored — keep it that way. |
+| Pasting `ACLED_PASSWORD` into a subagent prompt | Reference the env var by name; the subagent loads it via `os.environ` from `.env`. |
+| Using a stale `ACLED_KEY` from before the OAuth migration | The legacy static key is no longer accepted. Replace with `ACLED_PASSWORD` — see API Setup. |
 
 ## Caching Pattern
 
@@ -152,7 +289,10 @@ For the trailing 30 days, refresh on every run.
 
 ## Cross-References
 
-- **REQUIRED: Apply `handling-credentials-safely`.** ACLED requires both `key` AND `email` as query string parameters — both are credential-shaped and must be redacted from any URL appearing in errors, summaries, or ledger notes.
+- **REQUIRED: Apply `handling-credentials-safely`.** ACLED's 2026 OAuth model is *safer* than the legacy query-string scheme — bearer tokens in headers don't leak in error tracebacks the way `key=...&email=...` URLs did. Remaining discipline:
+  - The myACLED *password* in `ACLED_PASSWORD` is a higher-stakes credential than the old static key (it also opens the web account). Confirm presence by length only; never echo.
+  - The cached `cache/acled/token.json` is a 24-hour bearer credential. `cache/` is gitignored; do not commit; do not paste the file path into screenshots or summaries.
+  - On a 4xx from the token endpoint, do **not** include the response body in any error message — it can echo the submitted password.
 - Output rows feed `building-evidence-ledger`. Each cited ACLED event becomes one row, with `source_grade` graded on the underlying `source` (often **B** for international wires, **C** for subnational reporting).
 - Pair with `geolocating-imagery` when an ACLED event references images that need verification.
 - For background on conflict patterns, see `analysing-military-lens`.

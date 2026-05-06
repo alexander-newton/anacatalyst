@@ -83,7 +83,7 @@ The plugin's fetch skills need to make HTTP calls and run Python. Claude Code as
       "WebFetch(domain:ofac.treasury.gov)",
       "WebFetch(domain:api.opensanctions.org)",
       "WebFetch(domain:comtradeapi.un.org)",
-      "WebFetch(domain:api.acleddata.com)",
+      "WebFetch(domain:acleddata.com)",
       "WebFetch(domain:api.gdeltproject.org)",
       "WebFetch(domain:sh.dataspace.copernicus.eu)",
       "WebFetch(domain:identity.dataspace.copernicus.eu)",
@@ -140,7 +140,7 @@ These unlock the macro/markets/regulatory backbone:
 
 | Key | Source | Use |
 |---|---|---|
-| **`ACLED_KEY` + `ACLED_EMAIL`** | Armed Conflict Location & Event Data | Conflict tempo, named-actor event histories, base rates for political violence |
+| **`ACLED_EMAIL` + `ACLED_PASSWORD`** | Armed Conflict Location & Event Data (OAuth 2.0 since 2026) | Conflict tempo, named-actor event histories, base rates for political violence |
 | **`TELEGRAM_API_ID` + `TELEGRAM_API_HASH`** | [my.telegram.org/apps](https://my.telegram.org/apps) | Authenticated channel history + search. The `t.me/s/<channel>` HTML mirror works without these for read-only browsing — only register when you need history beyond ~20 posts or media download |
 | **`SH_CLIENT_ID` + `SH_CLIENT_SECRET`** | Copernicus Data Space Ecosystem | Free Sentinel-1 SAR + Sentinel-2 optical imagery; verification of physical claims |
 | **`NEWSAPI_KEY`** | NewsAPI | Current articles; free tier 100/day. GDELT can substitute for most use cases. |

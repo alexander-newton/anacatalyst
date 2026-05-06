@@ -58,7 +58,7 @@ This is the most-common leak mode for agents writing summaries. Agents naturally
 
 ### 3. Sanitise URLs in error handling
 
-`httpx` and `requests` both include the full request URL in the message of a raised exception. For APIs that take credentials in the query string (FRED, EIA, ACLED), this means the raw key shows up in any 5xx traceback. Wrap and re-raise:
+`httpx` and `requests` both include the full request URL in the message of a raised exception. For APIs that take credentials in the query string (FRED, EIA), this means the raw key shows up in any 5xx traceback. Wrap and re-raise:
 
 ```python
 import re, httpx

@@ -46,6 +46,26 @@ Four end-to-end live-API tests against the user's real keys, run via `uv run` fr
 
 **Bug found in `eia_browse`:** `params.setdefault(...).append(...)` doesn't serialise correctly for repeated query keys in httpx. Fixed in the skill — use list-of-tuples form.
 
+### `test_acled_live.py` (ACLED — `fetching-acled-events`)
+
+Three-step test exercising the OAuth 2.0 migration the API underwent in 2024-2025:
+
+| Step | Result |
+|---|---|
+| Password grant against `acleddata.com/oauth/token` | ✅ HTTP 200, RFC-6749 response shape (`access_token`, `expires_in=86400s`, `refresh_token`, `token_type=Bearer`) |
+| Authenticated read of Sudan events, 14–13 months ago (inside the 12-month publication-lag restriction) | ✅ HTTP 200, **100 rows**, all 31 documented columns present (`event_id_cnty`, `event_date`, `event_type`, `actor1`, `actor2`, `country`, `fatalities`, `location`, `latitude`, `longitude`, `notes`, etc.); sample 2025-02-09 Explosions/Remote violence by "Military Forces of Sudan (2019-)" |
+| Refresh-token round-trip | ✅ HTTP 200, new access token returned, distinct from previous |
+
+**Bugs surfaced and applied to the skill:**
+
+1. **Auth contract correction.** The plan originally inferred RFC-6749 password-grant fields (`grant_type`, `username`, `password`). The live probe returned HTTP 400 `invalid_request` with hint `"Check the client_id parameter"`. ACLED's docs (https://acleddata.com/api-documentation/getting-started) require **two extra fields** the plan didn't have: `client_id="acled"` (a hardcoded public client identifier — no client_secret) and `scope="authenticated"` for the password grant. The refresh grant also needs `client_id="acled"`. Skill helper updated to include both.
+
+2. **Account-level restrictions documented.** Free-tier ACLED accounts have a **12-month publication-lag** — events are not exposed to the API until they are at least 12 months old. The original test window (last 7 days) returned 0 rows even though Sudan has active daily events. Every ACLED response includes a `data_query_restrictions` block describing the active limits — skill now has a dedicated section explaining this and showing how to inspect it programmatically. Test window is now 14–13 months ago to respect the restriction.
+
+3. **Worked example date moved** from 2026-03 (inside the restricted window — would return 0 rows for free-tier users) to 2024-04 (live-verified to return events with the documented schema).
+
+The skill is now correct for the 2026 ACLED API; tested end-to-end against live data.
+
 ### `test_telegram_live.py` (Telegram — `fetching-telegram-channels`)
 
 Two-part test exercising both access paths the skill documents:

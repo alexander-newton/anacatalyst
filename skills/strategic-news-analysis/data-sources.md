@@ -231,13 +231,15 @@ sdn = pd.read_csv("https://www.treasury.gov/ofac/downloads/sdn.csv",
 hits = sdn[sdn["name"].str.contains("ROSNEFT", case=False, na=False)]
 ```
 
-### ACLED — recent events in a country (requires free API key)
+### ACLED — recent events in a country (OAuth 2.0; see `fetching-acled-events` skill)
 
 ```python
+# Full helper with token caching + refresh lives in skills/fetching-acled-events.
+# This is just the read-side shape, given a Bearer token already in hand.
 import httpx
-r = httpx.get("https://api.acleddata.com/acled/read",
-              params={"key": "YOUR_KEY", "email": "you@example.com",
-                      "country": "Sudan", "limit": 500})
+r = httpx.get("https://acleddata.com/api/acled/read",
+              params={"country": "Sudan", "limit": 500},
+              headers={"Authorization": f"Bearer {token}"})
 events = r.json()["data"]
 ```
 
